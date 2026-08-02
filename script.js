@@ -1,4 +1,92 @@
 (() => {
+  const switcher = document.querySelector('.language-switch');
+  if (!switcher) return;
+
+  // Phrase replacements run before the character map so contextual forms stay natural.
+  const traditionalPhrases = new Map([
+    ['大数据', '大數據'],
+    ['数据科学', '數據科學'],
+    ['信息', '資訊'],
+    ['社交媒体', '社交媒體'],
+    ['里面', '裡面'],
+    ['发起人', '發起人'],
+    ['复旦', '復旦'],
+    ['头发', '頭髮'],
+    ['理发', '理髮'],
+    ['皇后', '皇后'],
+    ['之后', '之後'],
+    ['然后', '然後'],
+    ['背后', '背後']
+  ]);
+  const simplifiedChars = '与专业个丰为么乐争于产亲们优会传体侣伙关兴内决准划创别务动区却历参发变叙后台启团园围国图场墙处备复头奖妈学实对导将届属币带并庆应开忆态惊愿戏战户扩拟换据数无旧时术机条来构标档桥欢气浅游湾滨灵点烟热独现码离种积筑级线组织绍经绕统继综网脚节苏荐获蓝虚见观规览觉触计认让记设访证识诉语调贴赛践转轮输达过还进连适锁锚长门问闲间阁队阳际险随隐页项顺预领题风饮驱验简';
+  const traditionalChars = '與專業個豐為麼樂爭於產親們優會傳體侶夥關興內決準劃創別務動區卻歷參發變敘後臺啟團園圍國圖場牆處備複頭獎媽學實對導將屆屬幣帶並慶應開憶態驚願戲戰戶擴擬換據數無舊時術機條來構標檔橋歡氣淺遊灣濱靈點煙熱獨現碼離種積築級線組織紹經繞統繼綜網腳節蘇薦獲藍虛見觀規覽覺觸計認讓記設訪證識訴語調貼賽踐轉輪輸達過還進連適鎖錨長門問閒間閣隊陽際險隨隱頁項順預領題風飲驅驗簡';
+  const characterMap = new Map([...simplifiedChars].map((character, index) => [character, traditionalChars[index]]));
+  const originalText = new WeakMap();
+  const originalAttributes = new WeakMap();
+  const translatedAttributes = ['aria-label', 'alt', 'title', 'placeholder', 'content'];
+
+  const toTraditional = (value) => {
+    let result = value;
+    traditionalPhrases.forEach((replacement, phrase) => {
+      result = result.split(phrase).join(replacement);
+    });
+    return [...result].map((character) => characterMap.get(character) || character).join('');
+  };
+
+  const rememberPageContent = () => {
+    const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.parentElement?.closest('script, style')) continue;
+      originalText.set(node, node.nodeValue);
+    }
+    document.querySelectorAll('*').forEach((element) => {
+      const values = {};
+      translatedAttributes.forEach((attribute) => {
+        if (element.hasAttribute(attribute)) values[attribute] = element.getAttribute(attribute);
+      });
+      if (Object.keys(values).length) originalAttributes.set(element, values);
+    });
+  };
+
+  const translate = (value) => document.documentElement.dataset.language === 'traditional'
+    ? toTraditional(value)
+    : value;
+
+  const setLanguage = (language) => {
+    const traditional = language === 'traditional';
+    document.documentElement.dataset.language = language;
+    document.documentElement.lang = traditional ? 'zh-Hant' : 'zh-CN';
+
+    const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const source = originalText.get(node);
+      if (source !== undefined) node.nodeValue = traditional ? toTraditional(source) : source;
+    }
+    document.querySelectorAll('*').forEach((element) => {
+      const values = originalAttributes.get(element);
+      if (!values) return;
+      Object.entries(values).forEach(([attribute, source]) => {
+        element.setAttribute(attribute, traditional ? toTraditional(source) : source);
+      });
+    });
+    switcher.querySelectorAll('[data-language]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.language === language));
+    });
+    window.dispatchEvent(new CustomEvent('macaugo:languagechange', { detail: { language } }));
+  };
+
+  rememberPageContent();
+  window.macauGoLanguage = { translate, setLanguage };
+  switcher.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-language]');
+    if (button) setLanguage(button.dataset.language);
+  });
+  setLanguage('simplified');
+})();
+
+(() => {
   const guide = document.querySelector('.lotusie-guide');
   if (!guide) return;
 
@@ -32,8 +120,9 @@
     if (!chapter || index === activeIndex) return;
 
     activeIndex = index;
-    stepLabel.textContent = chapter.step;
-    guideText.textContent = chapter.text;
+    const translate = window.macauGoLanguage?.translate || ((value) => value);
+    stepLabel.textContent = translate(chapter.step);
+    guideText.textContent = translate(chapter.text);
     progress.style.transform = `scaleX(${(index + 1) / chapters.length})`;
 
     if (!animate || guide.classList.contains('is-collapsed')) return;
@@ -84,13 +173,24 @@
     guide.classList.toggle('is-collapsed', collapsed);
     toggle.textContent = collapsed ? '+' : '×';
     toggle.setAttribute('aria-expanded', String(!collapsed));
-    toggle.setAttribute('aria-label', collapsed ? '展开 Lotusie 导览' : '收起 Lotusie 导览');
+    const label = collapsed ? '展开 Lotusie 导览' : '收起 Lotusie 导览';
+    toggle.setAttribute('aria-label', window.macauGoLanguage?.translate(label) || label);
   };
 
   toggle.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
     setCollapsed(!guide.classList.contains('is-collapsed'));
+  });
+
+  window.addEventListener('macaugo:languagechange', () => {
+    const chapter = chapters[activeIndex];
+    if (chapter) {
+      const translate = window.macauGoLanguage?.translate || ((value) => value);
+      stepLabel.textContent = translate(chapter.step);
+      guideText.textContent = translate(chapter.text);
+    }
+    setCollapsed(guide.classList.contains('is-collapsed'));
   });
 
   showChapter(findClosestChapter(), false);
