@@ -156,7 +156,7 @@ footer .brand-name{color:#fff}footer .brand-name small{color:rgba(255,255,255,.5
 /* Simplified / Traditional Chinese switch */
 .header-actions{display:flex;align-items:center;gap:10px}
 .language-switch{display:flex;align-items:center;padding:3px;background:#eef2ff;border:2px solid var(--line);border-radius:12px;box-shadow:3px 3px 0 var(--line)}
-.language-switch button{min-width:38px;padding:6px 7px;border:0;border-radius:7px;background:transparent;color:#66718b;font:800 12px/1 var(--body);cursor:pointer;transition:background .18s,color .18s,transform .18s}
+.language-switch button{min-width:38px;padding:6px 7px;border:2px solid var(--line);border-radius:7px;background:transparent;color:#66718b;font:800 12px/1 var(--body);cursor:pointer;transition:background .18s,color .18s,transform .18s}
 .language-switch button[aria-pressed="true"]{background:var(--blue);color:#fff}
 .language-switch button:hover{transform:translateY(-1px)}
 .language-switch button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
